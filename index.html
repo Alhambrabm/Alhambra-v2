@@ -71,16 +71,20 @@
         }
 
         /* Estilo para items del menú */
-        .menu-item-row {
-            transition: background-color 0.2s;
-            display: flex; 
-            flex-direction: column; 
-            padding-top: 1rem;
-            padding-bottom: 1rem;
+        .menu-item-row, .promo-card {
+            transition: background-color 0.2s, transform 0.2s;
             cursor: pointer; 
         }
         .menu-item-row:hover {
             background-color: #fff7ed; 
+        }
+        /* Aseguramos que la card de promo también tenga el cursor de puntero para indicar interactividad */
+        .promo-card {
+            transform: none !important; /* Reseteamos la transformación del hover de tailwind en la clase base */
+        }
+        .promo-card:hover {
+            background-color: #fefcfb; /* Fondo ligeramente más claro al pasar el ratón */
+            transform: scale(1.02);
         }
         
         /* Contenedor de texto/precio */
@@ -206,13 +210,125 @@
             line-height: 1;
             min-width: 20px;
             text-align: center;
+            transition: transform 0.2s;
         }
+        
+        /* --- ESTILOS DEL PANEL LATERAL DE PEDIDO (OFF-CANVAS) --- */
+        #order-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 100%;
+            max-width: 450px; /* Ancho máximo para el panel */
+            height: 100%;
+            background-color: #ffffff;
+            box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+            transform: translateX(100%); /* Oculto por defecto */
+            transition: transform 0.3s ease-in-out;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #order-panel.open {
+            transform: translateX(0); /* Muestra el panel */
+        }
+        
+        /* Contenedor de elementos del pedido (permite scroll) */
+        #order-details-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+        }
+
+        /* Overlay para el fondo principal cuando el panel está abierto */
+        #order-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+            display: none;
+            transition: opacity 0.3s;
+        }
+
+        /* --- ESTILOS DE TOAST NOTIFICATION --- */
+        #toast-notification {
+            position: fixed;
+            bottom: 100px; /* Sobre el botón flotante */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(34, 197, 94, 0.95); /* Tailwind green-500 semi-transparente */
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, bottom 0.3s, visibility 0.3s;
+            z-index: 1010;
+            max-width: 90%;
+            text-align: center;
+        }
+        #toast-notification.show {
+            opacity: 1;
+            visibility: visible;
+            bottom: 90px;
+        }
+
     </style>
 </head>
 <body class="font-sans dynamic-bg text-gray-800">
 
+    <!-- TOAST NOTIFICATION (Confirmación de Producto Agregado) -->
+    <div id="toast-notification">
+        <div class="flex items-center space-x-2">
+            <!-- Icono de check -->
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            <span id="toast-message" class="font-medium">Producto agregado al pedido.</span>
+        </div>
+    </div>
+
+
+    <!-- BACKDROP OSCURO PARA CERRAR EL PANEL AL TOCAR FUERA -->
+    <div id="order-backdrop" onclick="closeOrderPanel()"></div>
+    
+    <!-- PANEL LATERAL DE PEDIDO (OFF-CANVAS) -->
+    <div id="order-panel">
+        <!-- Encabezado del Panel -->
+        <header class="p-4 bg-primary-orange text-white flex justify-between items-center shadow-lg">
+            <h2 class="text-2xl font-bold">Mi Pedido 🛒</h2>
+            <button onclick="closeOrderPanel()" class="text-white hover:text-soft-white transition duration-200">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </header>
+
+        <!-- Contenido Dinámico del Pedido (Scrollable) -->
+        <div id="order-details-container">
+            <ul id="order-details" class="divide-y divide-gray-100">
+                <!-- Los items del pedido se renderizarán aquí -->
+            </ul>
+        </div>
+        
+        <!-- Pie del Panel (Fixed al final del Panel) -->
+        <footer class="p-4 border-t-2 border-orange-100 bg-white shadow-xl">
+            <div class="flex justify-between items-center text-xl font-bold mb-4">
+                <span>Total:</span>
+                <span id="order-total" class="text-accent-orange text-3xl">--</span>
+            </div>
+            
+            <!-- Botón de WhatsApp -->
+            <button onclick="generateWhatsappLink()" id="whatsapp-finish-btn" class="w-full bg-whatsapp-green hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-md">
+                Finalizar y Enviar por WhatsApp
+            </button>
+        </footer>
+    </div>
+
+
     <!-- BOTÓN FLOTANTE DE WHATSAPP / CARRITO -->
-    <button id="whatsapp-cart-btn" onclick="generateWhatsappLink()">
+    <button id="whatsapp-cart-btn" onclick="toggleOrderPanel()">
         <!-- Ícono de WhatsApp (SVG simple) -->
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" fill="currentColor" class="w-6 h-6">
             <path d="M380.9 97.1c-13.6-28.7-33.3-52.9-56.3-72.3C293.9 14.8 259.8 0 224 0c-35.8 0-69.9 14.8-95.6 42.8-23 19.4-42.7 43.6-56.3 72.3C47.8 131 39.5 163 39.5 197.8c0 29.5 8.3 58.1 24.6 83.3l-24.3 89.2 91.8-25.1c25.2 15.6 54.4 24.2 84.4 24.2 85.8 0 155.5-69.7 155.5-155.5 0-34.8-8.3-66.8-24.6-95.5zM224 430c-26.6 0-52.4-7.5-74.9-21.7L96 426.3l16.1-59.4c-15.8-24.8-24.4-53.7-24.4-83.3 0-69 56.1-125.1 125.1-125.1 33 0 63.8 13.1 87.2 36.5 23.4 23.4 36.5 54.2 36.5 87.2 0 69-56.1 125.1-125.1 125.1zM342.3 189.6c-2.4-2.4-5.4-3.6-8.5-3.6-3.1 0-6.1 1.2-8.5 3.6-2.4 2.4-3.6 5.4-3.6 8.5v35.3c0 3.1 1.2 6.1 3.6 8.5 2.4 2.4 5.4 3.6 8.5 3.6h35.3c3.1 0 6.1-1.2 8.5-3.6 2.4-2.4 3.6-5.4 3.6-8.5V198.1c0-3.1-1.2-6.1-3.6-8.5z"/>
@@ -237,7 +353,7 @@
             </nav>
         </header>
 
-        <!-- 2. Sección Principal (Hero) ... (contenido omitido por brevedad, es el mismo) -->
+        <!-- 2. Sección Principal (Hero) -->
         <section class="relative bg-primary-orange text-soft-white overflow-hidden py-16 sm:py-24 lg:py-32 shadow-xl">
             <div class="absolute inset-0 bg-primary-orange opacity-90"></div>
             
@@ -279,8 +395,7 @@
                                 data-name="Lomito simple" 
                                 data-price="$6.000" 
                                 data-price-num="6000"
-                                data-description="El clásico infaltable: bife de lomo, tomate, lechuga y mayonesa casera." 
-                                data-image-url="https://placehold.co/400x300/f97316/ffffff?text=FOTO+LOMITO">
+                                data-description="El clásico infaltable: bife de lomo, tomate, lechuga y mayonesa casera.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Lomito simple</span>
@@ -294,8 +409,7 @@
                                 data-name="Lomito completo" 
                                 data-price="$6.500" 
                                 data-price-num="6500"
-                                data-description="La versión más pedida: con jamón, queso, huevo frito y todos los vegetales frescos." 
-                                data-image-url="https://placehold.co/400x300/ea580c/ffffff?text=FOTO+LOMITO+COMPLETO">
+                                data-description="La versión más pedida: con jamón, queso, huevo frito y todos los vegetales frescos.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Lomito completo</span>
@@ -309,8 +423,7 @@
                                 data-name="Lomito cheddar" 
                                 data-price="$7.000" 
                                 data-price-num="7000"
-                                data-description="Bife de lomo cubierto con abundante salsa cheddar fundido." 
-                                data-image-url="https://placehold.co/400x300/f97316/ffffff?text=FOTO+LOMITO+CHEDDAR">
+                                data-description="Bife de lomo cubierto con abundante salsa cheddar fundido.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Lomito cheddar</span>
@@ -324,8 +437,7 @@
                                 data-name="Lomito caramelizado" 
                                 data-price="$7.000" 
                                 data-price-num="7000"
-                                data-description="Bife de lomo tierno, queso fundido y cebolla caramelizada lentamente en un toque de dulce." 
-                                data-image-url="https://placehold.co/400x300/ea580c/ffffff?text=FOTO+LOMITO+CARAMELIZADO">
+                                data-description="Bife de lomo tierno, queso fundido y cebolla caramelizada lentamente en un toque de dulce.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Lomito caramelizado</span>
@@ -351,8 +463,7 @@
                                 data-name="Mila simple" 
                                 data-price="$5.300" 
                                 data-price-num="5300"
-                                data-description="Milanesa de carne (ternera), **rebozada a mano** con lechuga y tomate." 
-                                data-image-url="https://placehold.co/400x300/f97316/ffffff?text=FOTO+MILA+SIMPLE">
+                                data-description="Milanesa de carne (ternera), **rebozada a mano** con lechuga y tomate.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Mila simple</span>
@@ -366,8 +477,7 @@
                                 data-name="Mila completa" 
                                 data-price="$6.000" 
                                 data-price-num="6000"
-                                data-description="Nuestra mila **extra crujiente** con jamón, queso, huevo frito y todos los vegetales frescos." 
-                                data-image-url="https://placehold.co/400x300/ea580c/ffffff?text=FOTO+MILA+COMPLETA">
+                                data-description="Nuestra mila **extra crujiente** con jamón, queso, huevo frito y todos los vegetales frescos.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Mila completa</span>
@@ -376,21 +486,7 @@
                                     <p class="text-sm text-gray-600 mt-1">Nuestra mila **extra crujiente** con jamón, queso, huevo frito y todos los vegetales frescos.</p>
                                 </div>
                             </li>
-                            <!-- Mila cheddar -->
-                            <li class="menu-item-row" onclick="showProductModal(this)"
-                                data-name="Mila cheddar" 
-                                data-price="$6.500" 
-                                data-price-num="6500"
-                                data-description="Milanesa **rebozada a mano** cubierta en abundante salsa cheddar caliente." 
-                                data-image-url="https://placehold.co/400x300/f97316/ffffff?text=FOTO+MILA+CHEDDAR">
-                                <div class="menu-item-text-container ml-0">
-                                    <div class="menu-item-content">
-                                        <span class="text-lg font-semibold text-gray-900">Mila cheddar</span>
-                                        <span class="text-xl font-bold text-accent-orange">$6.500</span>
-                                    </div>
-                                    <p class="text-sm text-gray-600 mt-1">Milanesa **rebozada a mano** cubierta en abundante salsa cheddar caliente.</p>
-                                </div>
-                            </li>
+                            <!-- LA MILA CHEDDAR FUE ELIMINADA COMO SE SOLICITÓ -->
                         </ul>
                     </div>
 
@@ -405,7 +501,8 @@
                              <!-- GIF como icono de 48x48px (w-12 h-12) -->
                              <img src="https://raw.githubusercontent.com/Alhambrabm/Alhambra/refs/heads/main/Hamburguesas.gif" 
                                   alt="Hamburguesa Animada" 
-                                  class="w-12 h-12 object-cover rounded-md shadow-lg transform hover:scale-110 transition duration-300">
+                                  class="w-12 h-12 object-cover rounded-md shadow-lg transform hover:scale-110 transition duration-300"
+                                  onerror="this.onerror=null;this.src='https://placehold.co/48x48/f97316/ffffff?text=🍔'">
                         </div>
                         
                         <p class="text-gray-500 mb-4 text-sm font-medium">Medallones caseros y frescos para un sabor inigualable.</p>
@@ -416,8 +513,7 @@
                                 data-name="Hamburguesa común" 
                                 data-price="$4.000" 
                                 data-price-num="4000"
-                                data-description="Medallón de carne, lechuga, tomate y aderezos." 
-                                data-image-url="https://raw.githubusercontent.com/Alhambrabm/Alhambra/refs/heads/main/images.jpeg">
+                                data-description="Medallón de carne, lechuga, tomate y aderezos.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Hamburguesa común</span>
@@ -431,8 +527,7 @@
                                 data-name="Hamburguesa completa" 
                                 data-price="$4.500" 
                                 data-price-num="4500"
-                                data-description="Carne, queso, jamón, huevo frito y vegetales frescos. Un clásico contundente." 
-                                data-image-url="https://placehold.co/400x300/ea580c/ffffff?text=FOTO+HAMB+COMPLETA">
+                                data-description="Carne, queso, jamón, huevo frito y vegetales frescos. Un clásico contundente.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Hamburguesa completa</span>
@@ -455,7 +550,8 @@
                             <!-- GIF de Papas como icono de 48x48px (w-12 h-12) -->
                              <img src="https://raw.githubusercontent.com/Alhambrabm/Alhambra/refs/heads/main/Papas.gif" 
                                   alt="Papas Fritas Animadas" 
-                                  class="w-12 h-12 object-cover rounded-md shadow-lg transform hover:scale-110 transition duration-300">
+                                  class="w-12 h-12 object-cover rounded-md shadow-lg transform hover:scale-110 transition duration-300"
+                                  onerror="this.onerror=null;this.src='https://placehold.co/48x48/facc15/000000?text=🍟'">
                         </div>
 
                         <p class="text-gray-500 mb-4 text-sm font-medium">Ideales para compartir, con toppings irresistibles.</p>
@@ -466,8 +562,7 @@
                                 data-name="Papas con Cheddar" 
                                 data-price="$3.500" 
                                 data-price-num="3500"
-                                data-description="Porción de papas fritas bañadas en cremoso queso cheddar fundido." 
-                                data-image-url="https://placehold.co/400x300/facc15/000000?text=FOTO+PAPAS+CHEDDAR">
+                                data-description="Porción de papas fritas bañadas en cremoso queso cheddar fundido.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Papas con Cheddar</span>
@@ -481,8 +576,7 @@
                                 data-name="Papas al Verdeo" 
                                 data-price="$3.500" 
                                 data-price-num="3500"
-                                data-description="Papas fritas con un toque fresco y aromático de cebolla de verdeo picada." 
-                                data-image-url="https://placehold.co/400x300/34d399/000000?text=FOTO+PAPAS+VERDEO">
+                                data-description="Papas fritas con un toque fresco y aromático de cebolla de verdeo picada.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Papas al Verdeo</span>
@@ -515,8 +609,7 @@
                                 data-name="Gaseosas (375cc)" 
                                 data-price="$2.000" 
                                 data-price-num="2000"
-                                data-description="Fanta, Sprite, Coca-Cola. (Agua $1.500)"
-                                data-image-url="https://placehold.co/400x300/06b6d4/ffffff?text=FOTO+BEBIDA">
+                                data-description="Fanta, Sprite, Coca-Cola. (Agua $1.500)">
                                 <div class="menu-item-text-container ml-0"> 
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Gaseosas (375cc)</span>
@@ -531,8 +624,7 @@
                                 data-name="Gaseosas (1Lt)" 
                                 data-price="$3.500" 
                                 data-price-num="3500"
-                                data-description="Coca Común, Coca Zero, Fanta, Sprite."
-                                data-image-url="https://placehold.co/400x300/06b6d4/ffffff?text=FOTO+BEBIDA">
+                                data-description="Coca Común, Coca Zero, Fanta, Sprite.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Gaseosas (1Lt)</span>
@@ -552,8 +644,7 @@
                                 data-name="Pampa Dorada" 
                                 data-price="$4.300" 
                                 data-price-num="4300"
-                                data-description="Cerveza rubia clásica de sabor ligero."
-                                data-image-url="https://placehold.co/400x300/facc15/000000?text=FOTO+CERVEZA">
+                                data-description="Cerveza rubia clásica de sabor ligero.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Pampa Dorada</span>
@@ -568,8 +659,7 @@
                                 data-name="Salta Rubia (473cc)" 
                                 data-price="$4.300" 
                                 data-price-num="4300"
-                                data-description="Rubia clásica de cuerpo y sabor equilibrado."
-                                data-image-url="https://placehold.co/400x300/facc15/000000?text=FOTO+SALTA+RUBIA">
+                                data-description="Rubia clásica de cuerpo y sabor equilibrado.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Salta Rubia (473cc)</span>
@@ -584,8 +674,7 @@
                                 data-name="Budweiser (710cc)" 
                                 data-price="$5.500" 
                                 data-price-num="5500"
-                                data-description="La mejor opción para acompañar tu sánguche."
-                                data-image-url="https://placehold.co/400x300/facc15/000000?text=FOTO+CERVEZA">
+                                data-description="La mejor opción para acompañar tu sánguche.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Budweiser (710cc)</span>
@@ -600,8 +689,7 @@
                                 data-name="Corona (710cc)" 
                                 data-price="$6.500" 
                                 data-price-num="6500"
-                                data-description="Corona bien fría, con su rodaja de lima."
-                                data-image-url="https://placehold.co/400x300/facc15/000000?text=FOTO+CERVEZA">
+                                data-description="Corona bien fría, con su rodaja de lima.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Corona (710cc)</span>
@@ -622,8 +710,7 @@
                                 data-name="Salta Negra (473cc)" 
                                 data-price="$4.500" 
                                 data-price-num="4500"
-                                data-description="De malta tostada y sabor intenso."
-                                data-image-url="https://placehold.co/400x300/1f2937/ffffff?text=FOTO+CERVEZA+NEGRA">
+                                data-description="De malta tostada y sabor intenso.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Salta Negra (473cc)</span>
@@ -638,8 +725,7 @@
                                 data-name="Guinness" 
                                 data-price="$4.500" 
                                 data-price-num="4500"
-                                data-description="La stout más famosa del mundo, cremosa y de cuerpo robusto."
-                                data-image-url="https://placehold.co/400x300/1f2937/ffffff?text=FOTO+CERVEZA+NEGRA">
+                                data-description="La stout más famosa del mundo, cremosa y de cuerpo robusto.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Guinness</span>
@@ -661,8 +747,7 @@
                                 data-name="Don Valentín (750cc)" 
                                 data-price="$7.500" 
                                 data-price-num="7500"
-                                data-description="Vino tinto (Malbec/Cabernet) o blanco."
-                                data-image-url="https://placehold.co/400x300/991b1b/ffffff?text=FOTO+VINO">
+                                data-description="Vino tinto (Malbec/Cabernet) o blanco.">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Don Valentín (750cc)</span>
@@ -677,8 +762,7 @@
                                 data-name="Fernet (Vaso)" 
                                 data-price="$5.000" 
                                 data-price-num="5000"
-                                data-description="Fernet con Coca Cola. ¡Listo para disfrutar!"
-                                data-image-url="https://placehold.co/400x300/4c0519/ffffff?text=FOTO+FERNET">
+                                data-description="Fernet con Coca Cola. ¡Listo para disfrutar!">
                                 <div class="menu-item-text-container ml-0">
                                     <div class="menu-item-content">
                                         <span class="text-lg font-semibold text-gray-900">Fernet (Vaso)</span>
@@ -708,7 +792,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
                     
                     <!-- Promo Card 1: 2 Lomitos Simples -->
-                    <div class="bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300">
+                    <div class="promo-card bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300"
+                         onclick="showProductModal(this)" 
+                         data-name="PROMO: 2 Lomitos Simples" 
+                         data-price="$10.000" 
+                         data-price-num="10000" 
+                         data-description="El doble del sabor que amas. Disfruta de la calidad del lomo con nuestra mayonesa casera. ¡Simplemente insuperable!">
                         <p class="text-xs font-bold text-white bg-highlight-yellow text-gray-900 inline-block px-3 py-1 rounded-full mb-3 shadow-md">⭐ EL MÁS VENDIDO</p>
                         <h3 class="text-2xl font-extrabold text-gray-900 mb-1">2 Lomitos Simples</h3>
                         <p class="text-gray-600 mb-4">El doble del sabor que amas. Disfruta de la calidad del lomo con nuestra mayonesa casera. ¡Simplemente insuperable!</p>
@@ -719,7 +808,12 @@
                     </div>
 
                     <!-- Promo Card 2: 2 Lomitos Completos -->
-                    <div class="bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-accent-orange transform hover:scale-[1.02] transition duration-300">
+                    <div class="promo-card bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-accent-orange transform hover:scale-[1.02] transition duration-300"
+                         onclick="showProductModal(this)"
+                         data-name="PROMO: 2 Lomitos Completos"
+                         data-price="$12.000"
+                         data-price-num="12000"
+                         data-description="El sándwich ideal para compartir: lomo, jamón, queso, huevo y vegetales. ¡El combo más potente y rendidor!">
                         <p class="text-xs font-bold text-white bg-primary-orange inline-block px-3 py-1 rounded-full mb-3 shadow-md">OFERTA FAMILIAR</p>
                         <h3 class="text-2xl font-extrabold text-gray-900 mb-1">2 Lomitos Completos</h3>
                         <p class="text-gray-600 mb-4">El sándwich ideal para compartir: lomo, jamón, queso, huevo y vegetales. ¡El combo más potente y rendidor!</p>
@@ -730,7 +824,12 @@
                     </div>
                     
                     <!-- Promo Card 3: 2 Milas Comunes -->
-                    <div class="bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300">
+                    <div class="promo-card bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300"
+                         onclick="showProductModal(this)"
+                         data-name="PROMO: 2 Milas Comunes"
+                         data-price="$9.000"
+                         data-price-num="9000"
+                         data-description="¡Doble porción de sabor! Milanesas **rebozadas a mano**, extra crujientes gracias a nuestro pan rallado especial.">
                         <p class="text-xs font-bold text-white bg-highlight-yellow text-gray-900 inline-block px-3 py-1 rounded-full mb-3 shadow-md">CRUJIENTE DÚO</p>
                         <h3 class="text-2xl font-extrabold text-gray-900 mb-1">2 Milas Comunes</h3>
                         <p class="text-gray-600 mb-4">¡Doble porción de sabor! Milanesas **rebozadas a mano**, extra crujientes gracias a nuestro pan rallado especial.</p>
@@ -741,7 +840,12 @@
                     </div>
 
                     <!-- Promo Card 4: 2 Milas Completas -->
-                    <div class="bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-accent-orange transform hover:scale-[1.02] transition duration-300">
+                    <div class="promo-card bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-accent-orange transform hover:scale-[1.02] transition duration-300"
+                         onclick="showProductModal(this)"
+                         data-name="PROMO: 2 Milas Completas"
+                         data-price="$11.000"
+                         data-price-num="11000"
+                         data-description="El placer de la milanesa **crujiente y casera** combinada con jamón, queso y huevo. ¡Una oferta contundente que no defrauda!">
                         <p class="text-xs font-bold text-white bg-primary-orange inline-block px-3 py-1 rounded-full mb-3 shadow-md">MÁXIMO AHORRO</p>
                         <h3 class="text-2xl font-extrabold text-gray-900 mb-1">2 Milas Completas</h3>
                         <p class="text-gray-600 mb-4">El placer de la milanesa **crujiente y casera** combinada con jamón, queso y huevo. ¡Una oferta contundente que no defrauda!</p>
@@ -752,7 +856,12 @@
                     </div>
 
                     <!-- Promo Card 5: 2 Lomitos Cheddar/Caramelizado -->
-                    <div class="bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300 md:col-span-2 lg:col-span-1 mx-auto w-full md:w-1/2 lg:w-full">
+                    <div class="promo-card bg-white p-6 rounded-2xl shadow-2xl border-b-8 border-primary-orange transform hover:scale-[1.02] transition duration-300 md:col-span-2 lg:col-span-1 mx-auto w-full md:w-1/2 lg:w-full"
+                         onclick="showProductModal(this)"
+                         data-name="PROMO: 2 Lomitos TOP (Cheddar/Caram.)"
+                         data-price="$13.000"
+                         data-price-num="13000"
+                         data-description="¡La explosión de sabor! Elegí combinar entre el intenso Cheddar fundido o la suavidad de la Cebolla Caramelizada.">
                         <p class="text-xs font-bold text-white bg-red-600 inline-block px-3 py-1 rounded-full mb-3 shadow-md">🔥 PROMO PREMIUM</p>
                         <h3 class="text-2xl font-extrabold text-gray-900 mb-1">2 Lomitos TOP</h3>
                         <p class="text-gray-600 mb-4">¡La explosión de sabor! Elegí combinar entre el intenso Cheddar fundido o la suavidad de la Cebolla Caramelizada.</p>
@@ -786,8 +895,7 @@
                 </p>
                 
                 <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 justify-center">
-                    <!-- Botón de WhatsApp (Placeholder para pedido directo) -->
-                    <!-- Se actualiza el enlace estático -->
+                    <!-- Botón de WhatsApp (Contacto General) -->
                     <a href="https://wa.me/5491166631401?text=¡Hola!%20Quiero%20hacer%20un%20pedido%20de%20La%20Alhambra." target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center bg-green-500 hover:bg-green-600 text-white text-lg font-bold py-3 px-8 rounded-xl transition duration-300 shadow-md transform hover:scale-105">
                         <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.75-4.25 8.75-9 8.75S3 16.75 3 12 7.25 3.25 12 3.25 21 7.25 21 12z"></path></svg>
                         Enviar WhatsApp
@@ -853,6 +961,13 @@
                         </div>
                     </div>
                 </div>
+                
+                <!-- Campo de Notas (RESTAURADO) -->
+                <div class="pt-4 border-t border-orange-200 mt-4">
+                    <label for="modal-notes" class="block text-lg font-semibold text-gray-800 mb-2">Notas / Personalización:</label>
+                    <textarea id="modal-notes" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-primary-orange focus:border-primary-orange resize-none" placeholder="Ej: Sin tomate, con extra de mayonesa, etc."></textarea>
+                </div>
+
 
                 <!-- Botón de Agregar al Pedido (ACCIÓN PRINCIPAL) -->
                 <button onclick="addToOrder()" class="mt-6 w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-md transform hover:scale-[1.01]">
@@ -860,7 +975,7 @@
                 </button>
                 
                 <!-- Botón de Cerrar (SECUNDARIO) -->
-                <button onclick="hideProductModal()" class="mt-3 w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-xl transition duration-200 shadow-sm">
+                <button onclick="hideProductModal(true)" class="mt-3 w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-4 rounded-xl transition duration-200 shadow-sm">
                     Cerrar / Cancelar
                 </button>
             </div>
@@ -873,12 +988,22 @@
         let initialModalContentHTML = '';
         let currentQuantity = 1;
         
-        // Array principal que almacena el pedido del usuario
+        // Array principal que almacena el pedido del usuario. Cada elemento es {name, quantity, price_num, notes}
         let order = [];
-        // NÚMERO DE WHATSAPP ACTUALIZADO
         const WHATSAPP_NUMBER = "5491166631401"; 
         
         // --- FUNCIONES DE UTILIDAD ---
+
+        // Función para formatear números como moneda (ej: 6000 -> $6.000)
+        function formatPrice(number) {
+            if (typeof number !== 'number' || isNaN(number)) return '$0';
+            // Usamos Intl.NumberFormat para formatear correctamente la moneda
+            return new Intl.NumberFormat('es-AR', {
+                style: 'currency',
+                currency: 'ARS',
+                minimumFractionDigits: 0,
+            }).format(number).replace('ARS', '$').trim();
+        }
 
         // Función para actualizar el contador flotante del carrito
         function updateOrderCount() {
@@ -888,26 +1013,108 @@
             countElement.innerText = count;
             if (count > 0) {
                 countElement.classList.remove('hidden');
-                document.getElementById('whatsapp-cart-btn').classList.add('animate-bounce'); // Efecto para llamar la atención
-                setTimeout(() => {
-                    document.getElementById('whatsapp-cart-btn').classList.remove('animate-bounce');
-                }, 500);
             } else {
                 countElement.classList.add('hidden');
             }
-        }
-        
-        // Función para formatear números como moneda (ej: 6000 -> $6.000)
-        function formatPrice(number) {
-            if (typeof number !== 'number' || isNaN(number)) return '$0';
-            return new Intl.NumberFormat('es-AR', {
-                style: 'currency',
-                currency: 'ARS',
-                minimumFractionDigits: 0,
-            }).format(number).replace('ARS', '$').trim();
+
+            // También actualiza el total en el panel de pedido (si está abierto)
+            renderOrderPanel();
         }
 
-        // --- LÓGICA DEL MODAL ---
+        // Muestra la notificación temporal
+        function showToast(message) {
+            const toast = document.getElementById('toast-notification');
+            document.getElementById('toast-message').innerText = message;
+            
+            // Mostrar
+            toast.classList.add('show');
+            
+            // Ocultar después de 3 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // --- LÓGICA DEL PANEL LATERAL DE PEDIDO (OFF-CANVAS) ---
+
+        function openOrderPanel() {
+            if (order.length === 0) {
+                showToast("Tu pedido está vacío. ¡Agrega algunos productos primero!");
+                return;
+            }
+            document.getElementById('order-panel').classList.add('open');
+            document.getElementById('order-backdrop').style.display = 'block';
+            document.body.classList.add('overflow-hidden'); // Previene el scroll del fondo
+            renderOrderPanel();
+        }
+
+        function closeOrderPanel() {
+            document.getElementById('order-panel').classList.remove('open');
+            document.getElementById('order-backdrop').style.display = 'none';
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function toggleOrderPanel() {
+            const panel = document.getElementById('order-panel');
+            if (panel.classList.contains('open')) {
+                closeOrderPanel();
+            } else {
+                openOrderPanel();
+            }
+        }
+        
+        function removeItem(index) {
+            if (index >= 0 && index < order.length) {
+                const removedItemName = order[index].name;
+                order.splice(index, 1); // Elimina el elemento en el índice
+                updateOrderCount();
+                renderOrderPanel();
+                showToast(`🚫 ${removedItemName} quitado del pedido.`);
+            }
+        }
+
+        function renderOrderPanel() {
+            const detailsList = document.getElementById('order-details');
+            const totalElement = document.getElementById('order-total');
+            let total = 0;
+            let html = '';
+
+            if (order.length === 0) {
+                html = '<li class="p-4 text-center text-gray-500">Aún no has agregado nada al pedido.</li>';
+                document.getElementById('whatsapp-finish-btn').disabled = true;
+            } else {
+                document.getElementById('whatsapp-finish-btn').disabled = false;
+                
+                order.forEach((item, index) => {
+                    const subtotal = item.quantity * item.price_num;
+                    total += subtotal;
+                    
+                    // Mostrar nota si existe
+                    const noteHtml = item.notes ? `<p class="text-xs text-gray-400 mt-1 italic">Nota: ${item.notes}</p>` : '';
+
+                    html += `
+                        <li class="flex justify-between items-start py-4 px-2">
+                            <div class="flex-grow pr-4">
+                                <p class="text-base font-semibold text-gray-900 leading-tight">${item.quantity}x ${item.name}</p>
+                                <p class="text-sm text-gray-500">${formatPrice(item.price_num)} c/u</p>
+                                ${noteHtml}
+                            </div>
+                            <div class="flex flex-col items-end space-y-2">
+                                <span class="text-lg font-bold text-primary-orange min-w-[70px] text-right">${formatPrice(subtotal)}</span>
+                                <button onclick="removeItem(${index})" class="text-red-500 hover:text-red-700 p-1 rounded-full transition duration-150" title="Quitar item">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3m-5 0h14"></path></svg>
+                                </button>
+                            </div>
+                        </li>
+                    `;
+                });
+            }
+
+            detailsList.innerHTML = html;
+            totalElement.innerText = formatPrice(total);
+        }
+
+        // --- LÓGICA DEL MODAL DE SELECCIÓN DE CANTIDAD ---
 
         function incrementQuantity() {
             currentQuantity++;
@@ -925,58 +1132,35 @@
             const name = document.getElementById('modal-product-name').innerText;
             const priceNum = parseFloat(document.getElementById('modal-product-price-num').value);
             const quantity = currentQuantity;
+            const notes = document.getElementById('modal-notes').value.trim(); // Se reincorpora la nota
             
             // Crear el objeto del item
             const newItem = {
                 name: name,
                 quantity: quantity,
-                price_num: priceNum
+                price_num: priceNum,
+                notes: notes // Se agrega la nota
             };
             
             // 1. Agregar el item al pedido
             order.push(newItem);
             
-            // 2. Actualizar el contador del carrito
+            // 2. Actualizar el contador del carrito y el panel de pedido
             updateOrderCount();
             
-            // 3. Mostrar un mensaje de confirmación dentro del modal
-            const modalContent = document.getElementById('product-modal-content');
+            // 3. Mostrar mensaje de confirmación y cerrar modal
+            showToast(`✅ ${quantity}x ${name} agregado.`);
+            hideProductModal(true); // Cierra y restaura el modal
             
-            // Guardamos el HTML original solo una vez
-            if (!initialModalContentHTML) {
-                initialModalContentHTML = modalContent.querySelector('.p-6').innerHTML;
-            }
-            
-            // Precio del subtotal
-            const subtotal = formatPrice(priceNum * quantity);
-
-            const tempConfirmationHTML = `
-                <div class="p-8 text-center">
-                    <h3 class="text-3xl font-extrabold text-green-600 mb-3">¡Añadido! 🎉</h3>
-                    <p class="text-lg text-gray-600 mb-2">
-                        Has agregado *${quantity} x ${name}* al pedido.
-                    </p>
-                    <p class="text-xl font-bold text-gray-800 mb-6">
-                        Subtotal: ${subtotal}
-                    </p>
-                    <button onclick="hideProductModal(true)" class="w-full bg-primary-orange hover:bg-accent-orange text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-md">
-                        Seguir Comprando
-                    </button>
-                    <button onclick="generateWhatsappLink()" class="mt-3 w-full bg-whatsapp-green hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-200 shadow-md">
-                        Finalizar Pedido (Ir a WhatsApp)
-                    </button>
-                </div>
-            `;
-            
-            modalContent.querySelector('.p-6').innerHTML = tempConfirmationHTML;
-
-            // 4. No cerramos automáticamente, damos opciones al usuario
+            // 4. Abrir el panel de pedido para que el usuario vea su adición (opcional, pero útil)
+            openOrderPanel();
         }
 
 
         function showProductModal(element) {
             const p6Content = document.getElementById('product-modal-content').querySelector('.p-6');
             if (!initialModalContentHTML) {
+                // Guardar la estructura inicial del contenido interno del modal solo la primera vez
                 initialModalContentHTML = p6Content.innerHTML;
             } else {
                 p6Content.innerHTML = initialModalContentHTML; // Restaurar el contenido original
@@ -987,17 +1171,22 @@
             const price = element.getAttribute('data-price'); // ej: $6.000
             const priceNum = parseFloat(element.getAttribute('data-price-num')); // ej: 6000
             const description = element.getAttribute('data-description');
-            const imageUrl = element.getAttribute('data-image-url');
+            // Usamos un placeholder genérico
+            const imageUrl = 'https://placehold.co/400x300/cccccc/333333?text=IMAGEN+PRODUCTO'; 
             
             const finalDescription = description || "Sin descripción adicional.";
 
-            // Resetear la cantidad al abrir el modal y actualizar el display
+            // Resetear la cantidad y la nota al abrir el modal y actualizar el display
             currentQuantity = 1; 
             const quantityDisplay = document.getElementById('modal-quantity');
             if (quantityDisplay) {
                 quantityDisplay.innerText = currentQuantity;
             }
-            
+            const notesInput = document.getElementById('modal-notes');
+            if(notesInput) {
+                notesInput.value = ''; // Limpiar la nota
+            }
+
             // 2. Insertar los datos en el modal
             document.getElementById('modal-product-name').innerText = name;
             document.getElementById('modal-product-price').innerText = price;
@@ -1009,7 +1198,7 @@
             modalImage.src = imageUrl;
             modalImage.alt = name;
             modalImage.onerror = () => {
-                modalImage.src = 'https://placehold.co/400x250/cccccc/333333?text=IMAGEN+NO+DISPONIBLE';
+                modalImage.src = 'https://placehold.co/400x250/cccccc/333333?text=IMAGEN+NO+DISPONIBLE'; 
                 console.error(`Error al cargar la imagen: ${imageUrl}`);
             };
 
@@ -1024,7 +1213,7 @@
             // 4. Configurar el cierre solo al hacer clic en el fondo oscuro
             modalOverlay.onclick = function(event) {
                 if (event.target === modalOverlay) {
-                    hideProductModal(true); // Usar true para asegurar la restauración
+                    hideProductModal(true); 
                 }
             };
         }
@@ -1034,7 +1223,6 @@
             document.getElementById('main-page-content').classList.remove('body-blur-active'); 
             document.body.classList.remove('overflow-hidden'); 
             
-            // Restaurar el contenido si se cerró después de una confirmación
             if (restoreContent && initialModalContentHTML) {
                 document.getElementById('product-modal-content').querySelector('.p-6').innerHTML = initialModalContentHTML;
             }
@@ -1045,22 +1233,27 @@
 
         function generateWhatsappLink() {
             if (order.length === 0) {
-                // Si está vacío, redirige al enlace de contacto general
-                window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=¡Hola!%20Quiero%20hacer%20un%20pedido%20de%20La%20Alhambra.`, '_blank');
+                showToast("Tu pedido está vacío. ¡Agrega productos para enviar!");
                 return;
             }
 
             let total = 0;
-            let message = "*¡Hola, mi pedido de La Alhambra es el siguiente!* \n\n";
+            let message = "*¡Hola! Mi pedido de La Alhambra es el siguiente:* \n\n";
             message += "__Detalle del Pedido:__\n";
             
             // Generar la lista de items
-            order.forEach((item, index) => {
+            order.forEach((item) => {
                 const subtotal = item.quantity * item.price_num;
                 total += subtotal;
                 
                 // Formato WhatsApp: *Cantidad* x Producto
                 message += `\n*${item.quantity}* x ${item.name}`;
+                
+                // Agregar nota si existe (RESTAURADO)
+                if (item.notes) {
+                    // Usamos un formato discreto para la nota en WhatsApp
+                    message += ` (Nota: ${item.notes.replace(/\n/g, ' ')} )`; 
+                }
             });
             
             // Total
@@ -1069,8 +1262,8 @@
             message += "\n---";
             message += "\n\n_Por favor, confirma el total y la forma de envío/retiro. ¡Gracias!_";
 
-            // Mostrar el mensaje en consola para debug y luego abrir el enlace
-            console.log("Mensaje de WhatsApp generado:", message);
+            // Cerrar el panel antes de redirigir
+            closeOrderPanel();
             
             // Codificar el mensaje para la URL
             const encodedMessage = encodeURIComponent(message);
@@ -1078,16 +1271,11 @@
             
             // Abrir WhatsApp
             window.open(whatsappLink, '_blank');
-            
-            // Opcional: limpiar el pedido después de enviar (o pedir confirmación)
-            // order = [];
-            // updateOrderCount();
         }
         
-        // Inicializar el contador al cargar
+        // Inicializar el contador y el panel al cargar
         window.onload = updateOrderCount;
 
     </script>
 </body>
 </html>
-
